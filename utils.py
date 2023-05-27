@@ -18,7 +18,7 @@ def correlate(df1, df2):
     df2 = df2.to_frame().reset_index(drop=False)
     merged = df1.merge(df2, on='Date').drop('Date', axis=1)
     corre = merged.corr().iloc[0,1]
-    st.write(f"""The Correlation between Treasuy yields and S&P 500 is {corre}""")
+    st.write(f"""{corre}""")
 
 
 def add_to_class(Class): #@save
