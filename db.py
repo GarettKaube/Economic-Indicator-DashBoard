@@ -9,7 +9,7 @@ import datetime
 st.set_page_config(layout="wide")
 
 # innitialization
-API_KEY = '####'  # MUST BE SET
+API_KEY = '9a048a276f1a939a1e64c77f214e5684'
 fred = Fred(api_key=API_KEY)
 series_header_size = 6
 
@@ -25,6 +25,9 @@ class Data:
         self.series = series
         self.name = name
         
+        self.start = start
+        self.end = end
+
         self.period = period
         self.percent_chg = None
         self.annual = annual
@@ -44,10 +47,8 @@ def get_data(self):
         if self.period == None:
             self.infer_freq()
         self.last_vals = self.data.tail(4)
-        data_filtered = self.data[(self.data.index >= start) & (self.data.index <= end)]
-        self.data = data_filtered
+        
 
-    
 
 
 @add_to_class(Data)
@@ -55,9 +56,10 @@ def write_data(self, chart_type = 'line'):
         st.write("""
         {} {}
         """.format('#'*series_header_size, self.name))
-
+        
+        data_filtered = self.data[(self.data.index >= self.start) & (self.data.index <= self.end)]
         # Handeling the case of a small time frame selection causing some series of small frequency not plotting
-        if self.data.size > 10:
+        if data_filtered.size > 10:
             if chart_type =='line':
                 st.line_chart(self.data)
 
@@ -65,12 +67,12 @@ def write_data(self, chart_type = 'line'):
                 st.area_chart(self.data.fillna(method='ffill'))
         
         # if series is small plot the 4 last observed values
-        elif self.last_vals is not None and self.data.size > 1:
+        elif self.last_vals is not None and data_filtered.size > 1:
             if chart_type =='line':
-                st.line_chart(self.data)
+                st.line_chart(data_filtered)
 
             elif chart_type == 'area':
-                st.area_chart(self.data.fillna(method='ffill'))
+                st.area_chart(data_filtered.fillna(method='ffill'))
         
         else:
             st.bar_chart(self.last_vals.tail(2))
@@ -92,21 +94,22 @@ def get_series(self):
 
 @add_to_class(Data)
 def calculate_pct_chg(self):
-     print(self.annual)
      period = self.period * 12 if self.annual == True else self.period
 
      self.percent_chg = ((self.data.diff(period)/ self.data.abs().shift(period))*100).dropna()
      
+     percent_chg_filtered = self.percent_chg[(self.percent_chg.index <= self.end) & (self.percent_chg.index >= self.start)]
      st.write("""
         {} Percent Change for {}
      """.format('#'*series_header_size, self.name))
-     
-     st.line_chart(self.percent_chg)
-
+     if percent_chg_filtered.size > 1:
+       
+        st.line_chart(percent_chg_filtered)
+     else:
+         st.write("""### Not enough data to calculate percent change""")
 
 
 st.sidebar.header('Economic Indicator Selection')
-
 
 
 # Dictionary that is of the form: "Series name": ["Fred Code", Period]
@@ -151,7 +154,7 @@ with st.sidebar:
         name_of_series = st.text_input("Name of data","Enter Name")
         annual = st.checkbox('If monthly data: Calculate percentage annualy?')
         submitted = st.form_submit_button("ADD")
-        print(annual)
+        
         if submitted:
             fred_dict[name_of_series] = [new_data, None, annual]
             with open('saved_series.pkl', 'wb') as f:
