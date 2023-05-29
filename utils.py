@@ -9,10 +9,6 @@ def add_names(series, series_name:str):
     return series
 
 
-def display_most_recent(series, max:int):
-    return series.tail(max)
-
-
 def correlate(df1, df2):
     df1 = df1.to_frame().reset_index(drop=False)
     df2 = df2.to_frame().reset_index(drop=False)
