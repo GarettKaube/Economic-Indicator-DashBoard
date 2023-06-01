@@ -9,7 +9,7 @@ import datetime
 st.set_page_config(layout="wide")
 
 # innitialization
-API_KEY = '#####' # MUST BE ADDED. Obtained from FRED 
+API_KEY = '9a048a276f1a939a1e64c77f214e5684' # MUST BE ADDED. Obtained from FRED 
 fred = Fred(api_key=API_KEY)
 series_header_size = 6
 
@@ -35,16 +35,16 @@ class Data:
 @add_to_class(Data)
 def get_data(self):
     try:
-        data = fred.get_series(self.series)
+        data = fred.get_series_latest_release(self.series)
+        
     except Exception:
         st.write('\"{}\" is not available.'.format(self.name))
     else:
-        self.data = add_names(data, self.name)
+        self.data = add_names(data, self.name[:17])
         if self.period == None:
             self.infer_freq()
         self.last_vals = self.data.tail(4)
         
-
 
 @add_to_class(Data)
 def write_data(self, chart_type = 'line'):
@@ -52,7 +52,7 @@ def write_data(self, chart_type = 'line'):
             st.write("""
             {} {}
             """.format('#'*series_header_size, self.name))
-            
+            print(pd.Timestamp(2023,5,26) <= self.end)
             data_filtered = self.data[(self.data.index >= self.start) & (self.data.index <= self.end)]
             # Handeling the case of a small time frame selection causing some series of small frequency not plotting
             if data_filtered.size > 10:
@@ -79,8 +79,8 @@ def write_latest_vals(self,n=4):
         if self.data is not None:
             latest = self.data.tail(n)
             st.write("""
-            ##### LATEST {} Values
-                """.format(self.name))
+            ##### LATEST {}
+                """.format(self.name[:17]+"..."))
             st.write(latest)
 
 
@@ -124,8 +124,6 @@ def infer_freq(self):
             self.period = 1
 
 
-
-
 selected_indicators = st.sidebar.multiselect('Indicator', fred_dict.keys())
 
 # Time frame selection
@@ -155,8 +153,6 @@ with st.sidebar:
         annual = st.checkbox('If monthly data: Calculate percentage annualy?')
         submitted = st.form_submit_button("ADD")
 
-
-    
         if submitted:
 
             check_for_FRED_Code = new_data.replace(" ", "") == "" or new_data == "FRED CODE"
@@ -175,6 +171,7 @@ with st.sidebar:
                 with open('saved_series.pkl', 'wb') as f:
                     pickle.dump(fred_dict, f)    
 
+
 # Remove data 
 with st.sidebar:
     with st.form('Remove Data'):
@@ -188,58 +185,52 @@ with st.sidebar:
 
 
 if len(selected_indicators) > 0:
-    tab1, tab2 = st.tabs(['Time-Series', 'Percent Change'])
+    tab1, tab2, tab3= st.tabs(['Time-Series', 'Percent Change', 'Data'])
 else: 
-    tab1 = st.tabs(['Time-Series'])[0]
+    tab1 = None
     tab2 = None
+    tab3 = None
+    st.text_area(label="Get Started", value = "Select a time series on the left", height=30)
 
 
 series_objects = []    # store series (Data) objects 
 
-
-with tab1:
-    if len(selected_indicators) > 0:
+num_indicators = len(selected_indicators)
+# Time-series tab
+if tab1 is not None:
+    with tab1:
+        # add select chart drop down menu when there is at least one time series selected
         chart_type = st.selectbox('Chart Type', ('line', 'area'))
-    else:
-        st.text_area(label="Get Started", value = "Select a time series on the left", height=30)
-        
 
-    num_indicators = len(selected_indicators)
-    if num_indicators == 0:
-        columns = st.columns(1, gap = 'medium')
-        n_cols=1
-    elif num_indicators >= 2:
-        columns = st.columns(2, gap = 'medium')
-        n_cols = 2
-    else:
-        columns = st.columns(1, gap = 'medium')
-        n_cols = 1
+        # set number of columns depending on how many time-series are selected
+        if num_indicators >= 2:
+            columns = st.columns(2, gap = 'medium')
+            n_cols = 2
+        else:
+            columns = st.columns(1, gap = 'medium')
+            n_cols = 1
 
-    # make series objects and display time plots of selected series
+        # make series objects and display time plots of selected series
 
-    if not stop:
-        for i, ind in enumerate(selected_indicators):
-            
-                with columns[i%n_cols]:
-                    try:
-                        series = Data(fred_dict[ind][0], ind, start, fred_dict[ind][1], end, fred_dict[ind][2])
-                    except Exception:
+        if not stop:
+            for i, ind in enumerate(selected_indicators):
+                
+                    with columns[i%n_cols]:
                         try:
-                            series = Data(fred_dict[ind][0], ind, start, fred_dict[ind][1], end)
+                            series = Data(fred_dict[ind][0], ind, start, fred_dict[ind][1], end, fred_dict[ind][2])
                         except Exception:
-                            pass
+                            try:
+                                series = Data(fred_dict[ind][0], ind, start, fred_dict[ind][1], end)
+                            except Exception:
+                                pass
 
-                    series.get_data()
-                    series_objects.append(series)
-                    series.write_data(chart_type)
+                        series.get_data()
+                        series_objects.append(series)
+                        series.write_data(chart_type)
 
 
 selected_indicators_for_pct = selected_indicators.copy()
-
-try:
-    selected_indicators_for_pct.remove("10-Year Treasury Constant Maturity Minus 2-Year Treasury Constant Maturity")
-except ValueError:
-    pass
+num_indicators_for_pct = len(selected_indicators_for_pct)
 
 # calculate and display percentage change of selected time series on second tab
 if tab2 is not None:
@@ -257,6 +248,20 @@ if tab2 is not None:
             with columns_pct[i%n_cols_pct]:
                 if s.name in selected_indicators_for_pct:
                     s.calculate_pct_chg()
+
+
+# tab for showing latest values of selected time-series
+if tab3 is not None:
+    with tab3:
+        max = st.number_input("Maximum amount of latest values to display:", min_value=1, max_value=20, value=4)
+        columns_tab3 = st.columns(5, gap='medium')
+        for i in range(1,6):
+            if num_indicators == i:
+                columns_tab3 = st.columns(i, gap='medium')   
+
+        for i,s in enumerate(series_objects):
+            with columns_tab3[i%5]:
+                s.write_latest_vals(max)
 
 
 
