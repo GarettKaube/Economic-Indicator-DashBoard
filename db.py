@@ -9,7 +9,7 @@ import datetime
 st.set_page_config(layout="wide")
 
 # innitialization
-API_KEY = '9a048a276f1a939a1e64c77f214e5684' # MUST BE ADDED. Obtained from FRED 
+API_KEY = '######' # MUST BE ADDED. Obtained from FRED 
 fred = Fred(api_key=API_KEY)
 series_header_size = 6
 
