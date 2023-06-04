@@ -9,12 +9,15 @@ def add_names(series, series_name:str):
     return series
 
 
+
 def correlate(df1, df2):
     df1 = df1.to_frame().reset_index(drop=False)
     df2 = df2.to_frame().reset_index(drop=False)
-    merged = df1.merge(df2, on='Date').drop('Date', axis=1)
-    corre = merged.corr().iloc[0,1]
-    st.write(f"""{corre}""")
+    merged = df1.merge(df2, on='Date').drop('Date', axis=1).dropna()
+    corre = merged.corr()
+   
+    return corre
+
 
 
 def add_to_class(Class): #@save
