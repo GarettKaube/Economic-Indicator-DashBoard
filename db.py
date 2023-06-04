@@ -9,7 +9,7 @@ import datetime
 st.set_page_config(layout="wide")
 
 # innitialization
-API_KEY = '######' # MUST BE ADDED. Obtained from FRED 
+API_KEY = '#######' # MUST BE ADDED. Obtained from FRED 
 fred = Fred(api_key=API_KEY)
 series_header_size = 6
 
@@ -49,10 +49,15 @@ def get_data(self):
 @add_to_class(Data)
 def write_data(self, chart_type = 'line'):
         if self.data is not None:
+            date_interval = st.slider("Date range", 
+                                      value=(datetime.date(self.start.year, self.start.month, self.start.day), datetime.date(self.end.year, self.end.month, self.end.day)),
+                                      key=self.name)
+            self.start = pd.Timestamp(date_interval[0].year, date_interval[0].month, date_interval[0].day)
+            self.end = pd.Timestamp(date_interval[1].year, date_interval[1].month, date_interval[1].day)
             st.write("""
             {} {}
             """.format('#'*series_header_size, self.name))
-            print(pd.Timestamp(2023,5,26) <= self.end)
+            
             data_filtered = self.data[(self.data.index >= self.start) & (self.data.index <= self.end)]
             # Handeling the case of a small time frame selection causing some series of small frequency not plotting
             if data_filtered.size > 10:
@@ -73,6 +78,8 @@ def write_data(self, chart_type = 'line'):
             else:
                 st.bar_chart(self.last_vals.tail(2))
 
+            
+
 
 @add_to_class(Data)
 def write_latest_vals(self,n=4):
@@ -87,6 +94,7 @@ def write_latest_vals(self,n=4):
 @add_to_class(Data)
 def get_series(self):
      return self.data
+
 
 
 @add_to_class(Data)
@@ -124,8 +132,9 @@ def infer_freq(self):
             self.period = 1
 
 
+# selection of indicators 
 selected_indicators = st.sidebar.multiselect('Indicator', fred_dict.keys())
-
+num_indicators = len(selected_indicators)
 # Time frame selection
 #
 with st.sidebar:
@@ -184,12 +193,16 @@ with st.sidebar:
                 pickle.dump(fred_dict, f)
 
 
-if len(selected_indicators) > 0:
-    tab1, tab2, tab3= st.tabs(['Time-Series', 'Percent Change', 'Data'])
+if num_indicators > 0:
+    tab1, tab2, tab3, tab4 = st.tabs(['Time-Series', 'Percent Change', 'Data', 'Summary'])
+elif  num_indicators == 1:
+    tab1, tab2, tab3 = st.tabs(['Time-Series', 'Percent Change', 'Data'])
+    tab4 = None
 else: 
     tab1 = None
     tab2 = None
     tab3 = None
+    tab4 = None
     st.text_area(label="Get Started", value = "Select a time series on the left", height=30)
 
 
@@ -262,6 +275,47 @@ if tab3 is not None:
         for i,s in enumerate(series_objects):
             with columns_tab3[i%5]:
                 s.write_latest_vals(max)
+
+
+# correlations and summary statistics
+if tab4 is not None: 
+    with tab4:
+        if num_indicators > 1:
+            st.write("""### Correlation Matices""")
+            columns_tab4 = st.columns(4, gap='medium') 
+            if num_indicators in range(1,5):
+                columns_tab4 = st.columns(num_indicators, gap='medium') 
+
+            series_objects_copy = series_objects.copy()
+
+            k=0
+            j=1
+            for series in series_objects_copy[:-1]:
+                
+                for i in range(j, len(series_objects_copy)-1):
+                    if series.name != series_objects_copy[i].name:
+            
+                        corr_ = correlate(series.get_series(), series_objects_copy[i].get_series())
+                        
+                        
+                        with columns_tab4[k % np.min([4,num_indicators])]:
+                            st.write(corr_)
+                        k += 1
+                j += 1
+
+                
+
+        merged_series = series_objects[0].get_series()
+
+        if num_indicators > 1:
+            merged_series = pd.merge(series_objects[0].get_series(), series_objects[1].get_series(), on = 'Date')
+            for n in range(2, num_indicators):
+
+                merged_series = pd.merge(merged_series, series_objects[n].get_series(), on = 'Date')
+        
+        st.write("""### Summary Statistics""")
+        st.write(merged_series.describe())
+
 
 
 
