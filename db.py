@@ -9,12 +9,13 @@ import datetime
 import plotly.graph_objects as go
 import plotly.express as px
 import time
+import os
 
 
 st.set_page_config(layout="wide")
 
 # innitialization
-API_KEY = '' # MUST BE ADDED. Obtained from FRED 
+API_KEY = '9a048a276f1a939a1e64c77f214e5684' # MUST BE ADDED. Obtained from FRED 
 fred = Fred(api_key=API_KEY)
 series_header_size = 6
 
@@ -36,7 +37,10 @@ class Data:
 
 @add_to_class(Data)
 def get_data(self):
-
+    """
+    Downloads FRED data if it is not already downloaded
+    returns: None
+    """
     try:
         data = pd.read_csv(f"./data/{self.name}.csv",index_col=0)
         data.index = pd.to_datetime(data.index)
@@ -47,7 +51,6 @@ def get_data(self):
         except Exception:
             st.write('\"{}\" is not available.'.format(self.name))
     else:
-        
         self.data = add_names(data, self.name[:17])
         if self.period == None:
             self.infer_freq()
@@ -59,7 +62,7 @@ def get_data(self):
 def write_data(self, chart_type = 'line'):
         """
         Lets user use the date slider to select date end points then plots the time series. Can plot line or area charts.
-        
+        chart_type: 'line' or 'area'
         """
         if self.data is not None:
             fig = go.Figure()
@@ -130,6 +133,7 @@ def calculate_pct_chg(self):
 # Dictionary that is of the form: "Series name": ["Fred Code", Period]
 with open('saved_series.pkl', 'rb') as f:
     fred_dict = pickle.load(f)
+    
 
 @add_to_class(Data)
 def infer_freq(self):
@@ -242,7 +246,7 @@ class TimeSeriesTab(SideBar):
             with columns[i%ncols]:
                 try:
                     series = Data(fred_dict[ind][0], ind, self.start, fred_dict[ind][1], self.end, fred_dict[ind][2])
-                    print('yo')
+                    
                 except Exception:
                     try:
                         series = Data(fred_dict[ind][0], ind, self.start, fred_dict[ind][1], self.end)
@@ -273,16 +277,18 @@ def percent_change_tab(selected_indicators, num_indicators, series_objects, tab=
                     if s.name in selected_indicators:
                         s.calculate_pct_chg()
 
-    
+
+def data_tab():
+    pass
 
 
 def main():
+    os.makedirs("./data", exist_ok=True)
     
     time_series = TimeSeriesTab()
     time_series.select_data()
     time_series.get_more_data()
     time_series.remove_data()
-    print(time_series.num_indicators)
 
    
     if time_series.num_indicators > 1:

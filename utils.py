@@ -4,7 +4,7 @@ from fredapi import Fred
 import streamlit as st
 
 def add_names(series, series_name:str):
-    series.rename(series_name, inplace=True)
+    series.name = series_name
     series.index.name = 'Date'
     return series
 
