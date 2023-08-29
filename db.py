@@ -180,12 +180,12 @@ class SideBar:
                 submitted = st.form_submit_button("ADD")
 
                 if submitted:
-
                     check_for_FRED_Code = new_data.replace(" ", "") == "" or new_data == "FRED CODE"
                     check_for_name = name_of_series.replace(" ", "") == "" or name_of_series == "Enter Name"
 
                     if check_for_FRED_Code:
                         st.markdown(":red[Enter the FRED code for the Time Series!]")
+
                         if check_for_name:
                             st.markdown(":red[Enter a name for the Time Series!]")
 
@@ -278,8 +278,18 @@ def percent_change_tab(selected_indicators, num_indicators, series_objects, tab=
                         s.calculate_pct_chg()
 
 
-def data_tab():
-    pass
+def data_tab(tab, num_indicators, series_objects):
+    if tab is not None:
+        with tab:
+            max = st.number_input("Maximum amount of latest values to display:", min_value=1, max_value=20, value=4)
+            columns = st.columns(5, gap='medium')
+            for i in range(1,6):
+                if num_indicators == i:
+                    columns = st.columns(i, gap='medium')   
+
+            for i,s in enumerate(series_objects):
+                with columns[i%5]:
+                    s.write_latest_vals(max)
 
 
 def main():
@@ -290,23 +300,12 @@ def main():
     time_series.get_more_data()
     time_series.remove_data()
 
-   
-    if time_series.num_indicators > 1:
-        tab1, tab2, tab3, tab4 = st.tabs(['Time-Series', 'Percent Change', 'Data', 'Summary'])
-        time_series.tab = tab1
-    elif  time_series.num_indicators == 1:
-        tab1, tab2, tab3 = st.tabs(['Time-Series', 'Percent Change', 'Data'])
-        tab4 = None
-        time_series.tab = tab1
-    else: 
-        tab1 = None
-        tab2 = None
-        tab3 = None
-        tab4 = None
-        st.text_area(label="Get Started", value = "Select a time series on the left", height=30)
+    time_series_tab, pct_tab, data_tab, summary_tab = get_tabs(time_series.num_indicators)
+    time_series.tab = time_series_tab
     
     time_series.runtab()
-    percent_change_tab(time_series.selected_indicators, time_series.num_indicators, time_series.series_objects, tab2)
+    percent_change_tab(time_series.selected_indicators, time_series.num_indicators, time_series.series_objects, pct_tab)
     
 
-main()
+if __name__ == "__main__":
+    main()
