@@ -15,7 +15,9 @@ import os
 st.set_page_config(layout="wide")
 
 # innitialization
-API_KEY = '9a048a276f1a939a1e64c77f214e5684' # MUST BE ADDED. Obtained from FRED 
+with open("apikey.txt", 'r') as f:
+    API_KEY  = f.read()
+    
 fred = Fred(api_key=API_KEY)
 series_header_size = 6
 
@@ -148,18 +150,22 @@ def infer_freq(self):
 class SideBar:
     def __init__(self) -> None:
         st.sidebar.header('Economic Indicator Selection')
-        self.selected_indicators = st.sidebar.multiselect('Indicator', fred_dict.keys())
+        self.selected_indicators = st.sidebar.multiselect('Indicator', fred_dict.keys()) #selection area to select time-series
         self.num_indicators = len(self.selected_indicators)
-        self.start = None
-        self.end = None
+
+        #self.start = None   #global time series start
+        #self.end = None     #global time series end
         self.stop = None
+
     def select_data(self):
         with st.sidebar:
             start_select = st.date_input('Start of Time Series', value =datetime.date(2014,1,1), min_value=datetime.date(1960,1,1))
-            self.start = pd.Timestamp(start_select.year, start_select.month, start_select.day)
+            #update global time series start
+            self.start = pd.Timestamp(start_select.year, start_select.month, start_select.day) 
 
             end_select = st.date_input('End of Time Series', min_value=datetime.date(1960,1,1))
-            self.end = pd.Timestamp(end_select.year, end_select.month, end_select.day)
+            #update global time series end
+            self.end = pd.Timestamp(end_select.year, end_select.month, end_select.day) 
 
             # make sure the start date is before the end date
             try:
@@ -211,16 +217,16 @@ class SideBar:
 
 
 
-class TimeSeriesTab(SideBar):
+class TimeSeries(SideBar):
     def __init__(self, tab = None) -> None:
         self.series_objects = []    # store series (Data) objects 
-        self.tab = tab
-        super(TimeSeriesTab, self).__init__()
+        super(TimeSeries, self).__init__()
+        self.time_series_tab, self.pct_tab, self.data_tab, self.summary_tab = get_tabs(self.num_indicators)
 
-    def runtab(self):
+    def runtabs(self):
         # Time-series tab
-        if self.tab is not None:
-            with self.tab:
+        if self.time_series_tab is not None:
+            with self.time_series_tab:
                 # add select chart drop down menu when there is at least one time series selected
                 charttype = st.selectbox('Chart Type', ('line', 'area'))
 
@@ -236,6 +242,10 @@ class TimeSeriesTab(SideBar):
 
                 if not self.stop:
                     self.make_plots(columns, ncols, charttype)
+        
+        # other tabs
+        self.percent_change_tab(self.pct_tab)
+        self.run_data_tab(self.data_tab)
 
 
     def make_plots(self, columns, ncols, charttype):
@@ -258,53 +268,48 @@ class TimeSeriesTab(SideBar):
 
 
 
-def percent_change_tab(selected_indicators, num_indicators, series_objects, tab=None):
-    """
-    Plots the percent change of the selected time-series.
-    """
-    if tab is not None:
-        with tab:
+    def percent_change_tab(self, tab):
+        """
+        Plots the percent change of the selected time-series.
+        """
+        if tab is not None:
+            with tab:
 
-            if num_indicators >= 2:
-                columns_pct = st.columns(2, gap = 'medium')
-                n_cols_pct = 2
-            else:
-                columns_pct = st.columns(1, gap = 'medium')
-                n_cols_pct = 1
+                if self.num_indicators >= 2:
+                    columns_pct = st.columns(2, gap = 'medium')
+                    n_cols_pct = 2
+                else:
+                    columns_pct = st.columns(1, gap = 'medium')
+                    n_cols_pct = 1
 
-            for i,s in enumerate(series_objects):
-                with columns_pct[i%n_cols_pct]:
-                    if s.name in selected_indicators:
-                        s.calculate_pct_chg()
+                for i,s in enumerate(self.series_objects):
+                    with columns_pct[i%n_cols_pct]:
+                        if s.name in self.selected_indicators:
+                            s.calculate_pct_chg()
 
 
-def data_tab(tab, num_indicators, series_objects):
-    if tab is not None:
-        with tab:
-            max = st.number_input("Maximum amount of latest values to display:", min_value=1, max_value=20, value=4)
-            columns = st.columns(5, gap='medium')
-            for i in range(1,6):
-                if num_indicators == i:
-                    columns = st.columns(i, gap='medium')   
+    def run_data_tab(self, tab):
+        if tab is not None:
+            with tab:
+                max = st.number_input("Maximum amount of latest values to display:", min_value=1, max_value=20, value=4)
+                columns = st.columns(5, gap='medium')
+                for i in range(1,6):
+                    if self.num_indicators == i:
+                        columns = st.columns(i, gap='medium')   
 
-            for i,s in enumerate(series_objects):
-                with columns[i%5]:
-                    s.write_latest_vals(max)
+                for i,s in enumerate(self.series_objects):
+                    with columns[i%5]:
+                        s.write_latest_vals(max)
 
 
 def main():
     os.makedirs("./data", exist_ok=True)
     
-    time_series = TimeSeriesTab()
+    time_series = TimeSeries()
     time_series.select_data()
     time_series.get_more_data()
     time_series.remove_data()
-
-    time_series_tab, pct_tab, data_tab, summary_tab = get_tabs(time_series.num_indicators)
-    time_series.tab = time_series_tab
-    
-    time_series.runtab()
-    percent_change_tab(time_series.selected_indicators, time_series.num_indicators, time_series.series_objects, pct_tab)
+    time_series.runtabs()
     
 
 if __name__ == "__main__":

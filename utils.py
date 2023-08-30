@@ -43,6 +43,6 @@ def get_tabs(num_indicators):
         time_series_tab, percent_change_tab, data_tab = st.tabs(['Time-Series', 'Percent Change', 'Data'])
         
     else:
-        st.text_area(label="Get Started", value = "Select a time series on the left", height=30, key='get_started')
+        st.text_area(label="Get Started", value = "Select a time series on the left", height=30, key='get_startedd')
     
     return time_series_tab, percent_change_tab, data_tab, summary_tab
