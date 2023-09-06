@@ -16,7 +16,7 @@ st.set_page_config(layout="wide")
 
 # innitialization
 with open("apikey.txt", 'r') as f:
-    API_KEY  = f.read()
+    API_KEY  = f.read().strip()
     
 fred = Fred(api_key=API_KEY)
 series_header_size = 6
@@ -114,7 +114,7 @@ def get_series(self):
 
 
 @add_to_class(Data)
-def calculate_pct_chg(self):
+def plot_pct_chg(self):
      if self.data is not None:
         period = self.period * 12 if self.annual == True else self.period
 
@@ -152,10 +152,9 @@ class SideBar:
         st.sidebar.header('Economic Indicator Selection')
         self.selected_indicators = st.sidebar.multiselect('Indicator', fred_dict.keys()) #selection area to select time-series
         self.num_indicators = len(self.selected_indicators)
-
-        #self.start = None   #global time series start
-        #self.end = None     #global time series end
         self.stop = None
+        self.start = None
+        self.end = None
 
     def select_data(self):
         with st.sidebar:
@@ -203,6 +202,9 @@ class SideBar:
                         with open('saved_series.pkl', 'wb') as f:
                             pickle.dump(fred_dict, f)    
 
+    def get_attributes(self):
+        return self.selected_indicators, self.num_indicators, self.start, self.end
+    
     def remove_data(self):
         # Remove data 
         with st.sidebar:
@@ -217,11 +219,12 @@ class SideBar:
 
 
 
-class TimeSeries(SideBar):
-    def __init__(self, tab = None) -> None:
+class TimeSeries:
+    def __init__(self, sidebar, tab = None) -> None:
         self.series_objects = []    # store series (Data) objects 
-        super(TimeSeries, self).__init__()
+        self.selected_indicators, self.num_indicators, self.stop, self.start, self.end = vars(sidebar).values()
         self.time_series_tab, self.pct_tab, self.data_tab, self.summary_tab = get_tabs(self.num_indicators)
+        
 
     def runtabs(self):
         # Time-series tab
@@ -285,7 +288,7 @@ class TimeSeries(SideBar):
                 for i,s in enumerate(self.series_objects):
                     with columns_pct[i%n_cols_pct]:
                         if s.name in self.selected_indicators:
-                            s.calculate_pct_chg()
+                            s.plot_pct_chg()
 
 
     def run_data_tab(self, tab):
@@ -305,10 +308,12 @@ class TimeSeries(SideBar):
 def main():
     os.makedirs("./data", exist_ok=True)
     
-    time_series = TimeSeries()
-    time_series.select_data()
-    time_series.get_more_data()
-    time_series.remove_data()
+    side_bar = SideBar()
+    side_bar.select_data()
+    side_bar.get_more_data()
+    side_bar.remove_data()
+
+    time_series = TimeSeries(side_bar)
     time_series.runtabs()
     
 
